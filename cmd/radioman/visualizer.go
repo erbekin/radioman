@@ -130,8 +130,8 @@ func (v *Visualizer) Render(width, height int, playing bool) string {
 
 	header := fmt.Sprintf(
 		"%s %s",
-		labelStyle.Render("♫ Visualizer:"),
-		dimStyle.Render(fmt.Sprintf("[%s • 'v': toggle • 'm': mode]", v.Mode.String())),
+		labelStyle.Render("♫ "+v.Mode.String()),
+		dimStyle.Render("· m mode · v hide"),
 	)
 
 	plotHeight := max(2, height-2)

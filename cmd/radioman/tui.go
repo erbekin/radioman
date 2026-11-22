@@ -77,6 +77,8 @@ type model struct {
 	snameInput     textinput.Model
 	editingStation radiobrowser.Station
 
+	showHelp bool
+
 	loading   bool
 	spinner   spinner.Model
 	statusMsg string
@@ -86,64 +88,17 @@ type model struct {
 	height int
 }
 
-var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#00E5FF")).
-			Padding(0, 1)
-
-	activeTabStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#11111B")).
-			Background(lipgloss.Color("#00E5FF")).
-			Padding(0, 2)
-
-	inactiveTabStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#A6ADC8")).
-				Background(lipgloss.Color("#313244")).
-				Padding(0, 2)
-
-	selectedRowStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#00E5FF")).
-				Background(lipgloss.Color("#1E1E2E"))
-
-	normalRowStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#CDD6F4"))
-
-	playingBadgeStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#A6E3A1"))
-
-	favBadgeStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#F9E2AF"))
-
-	dimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6C7086"))
-
-	labelStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#89B4FA"))
-
-	boxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#45475A")).
-			Padding(0, 1)
-
-	nowPlayingStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#A6E3A1")).
-			Background(lipgloss.Color("#181825")).
-			Padding(0, 1)
-
-	errorStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#F38BA8"))
-
-	statusStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#F9E2AF"))
-)
+func newStyledInput(placeholder, value string, charLimit int) textinput.Model {
+	in := textinput.New()
+	in.Prompt = ""
+	in.Placeholder = placeholder
+	in.SetValue(value)
+	in.CharLimit = charLimit
+	in.TextStyle = textStyle
+	in.PlaceholderStyle = dimStyle
+	in.Cursor.Style = lipgloss.NewStyle().Foreground(colAccent)
+	return in
+}
 
 func NewTUIModel(
 	client *radiobrowser.Client,
@@ -157,30 +112,14 @@ func NewTUIModel(
 	}
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
+	sp.Style = lipgloss.NewStyle().Foreground(colAccent)
 
-	nameIn := textinput.New()
-	nameIn.Placeholder = "Station name (e.g. jazz, bbc)"
-	nameIn.SetValue(opts.InitialName)
-	nameIn.CharLimit = 80
-	nameIn.Width = 26
+	nameIn := newStyledInput("jazz, bbc…", opts.InitialName, 80)
+	countryIn := newStyledInput("Germany, US…", opts.InitialCountry, 60)
+	tagIn := newStyledInput("rock, classical…", opts.InitialTag, 60)
 
-	countryIn := textinput.New()
-	countryIn.Placeholder = "Country (e.g. Germany, US)"
-	countryIn.SetValue(opts.InitialCountry)
-	countryIn.CharLimit = 60
-	countryIn.Width = 24
-
-	tagIn := textinput.New()
-	tagIn.Placeholder = "Tag (e.g. rock, classical)"
-	tagIn.SetValue(opts.InitialTag)
-	tagIn.CharLimit = 60
-	tagIn.Width = 24
-
-	snameIn := textinput.New()
-	snameIn.Placeholder = "Short name (a-zA-Z0-9-_.)"
-	snameIn.CharLimit = 48
-	snameIn.Width = 30
+	snameIn := newStyledInput("a-z A-Z 0-9 - _ .", "", 48)
+	snameIn.Width = 24
 
 	limit := opts.Limit
 	if limit <= 0 {
@@ -380,6 +319,7 @@ func (m model) updateSnameInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.editingSname = false
 		m.snameInput.Blur()
+		m.errMsg = ""
 		m.statusMsg = "Cancelled short name edit"
 		return m, nil
 
@@ -414,6 +354,7 @@ func (m model) updateSearchInputs(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.searching = false
 		m.blurAllInputs()
+		m.ensureCursorVisible()
 		return m, nil
 
 	case "tab", "down":
@@ -473,6 +414,18 @@ func (m model) updateNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q", "ctrl+c":
 		m.player.Shutdown(m.settings.ContinueOnExit)
 		return m, tea.Quit
+
+	case "?":
+		m.showHelp = !m.showHelp
+		m.ensureCursorVisible()
+		return m, nil
+
+	case "esc":
+		if m.showHelp {
+			m.showHelp = false
+			m.ensureCursorVisible()
+		}
+		return m, nil
 
 	case "1":
 		return m.switchTab(tabTop)
@@ -677,319 +630,4 @@ func (m model) switchTab(target tabIndex) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, nil
-}
-
-func (m model) listHeight() int {
-	reserved := 12
-	if m.activeTab == tabSearch || m.searching {
-		reserved += 3
-	}
-	h := m.height - reserved
-	if h < 5 {
-		return 5
-	}
-	return h
-}
-
-func (m *model) ensureCursorVisible() {
-	h := m.listHeight()
-	if m.cursor < m.offset {
-		m.offset = m.cursor
-	}
-	if m.cursor >= m.offset+h {
-		m.offset = m.cursor - h + 1
-	}
-	if m.offset < 0 {
-		m.offset = 0
-	}
-}
-
-func (m model) View() string {
-	var sections []string
-
-	// Header & Tabs
-	sections = append(sections, m.renderHeader())
-
-	// Search Bar (shown on Search tab or while editing filters)
-	if m.activeTab == tabSearch || m.searching {
-		sections = append(sections, m.renderSearchBar())
-	}
-
-	// Main Content: Station List + Details Panel
-	sections = append(sections, m.renderMainContent())
-
-	// Now Playing Bar
-	sections = append(sections, m.renderNowPlaying())
-
-	// Footer Status & Keybindings
-	sections = append(sections, m.renderFooter())
-
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
-}
-
-func (m model) renderHeader() string {
-	title := titleStyle.Render("📻 RADIOMAN")
-
-	tabs := []struct {
-		idx   tabIndex
-		label string
-	}{
-		{tabTop, "1: Top Stations"},
-		{tabSearch, "2: Search"},
-		{tabFavorites, fmt.Sprintf("3: Favorites (%d)", m.favorites.Len())},
-	}
-
-	var renderedTabs []string
-	for _, t := range tabs {
-		if m.activeTab == t.idx {
-			renderedTabs = append(renderedTabs, activeTabStyle.Render(t.label))
-		} else {
-			renderedTabs = append(renderedTabs, inactiveTabStyle.Render(t.label))
-		}
-	}
-
-	tabRow := lipgloss.JoinHorizontal(lipgloss.Center, renderedTabs...)
-	return lipgloss.JoinHorizontal(lipgloss.Center, title, "  ", tabRow)
-}
-
-func (m model) renderSearchBar() string {
-	hint := dimStyle.Render("[Tab: next field | Enter: run search | Esc: cancel]")
-	if !m.searching {
-		hint = dimStyle.Render("[Press '/' or 's' to edit search filters]")
-	}
-
-	row := fmt.Sprintf(
-		"%s %s   %s %s   %s %s   %s",
-		labelStyle.Render("Name:"),
-		m.nameInput.View(),
-		labelStyle.Render("Country:"),
-		m.countryInput.View(),
-		labelStyle.Render("Tag:"),
-		m.tagInput.View(),
-		hint,
-	)
-	return boxStyle.Width(max(40, m.width-4)).Render(row)
-}
-
-func (m model) renderMainContent() string {
-	totalWidth := max(60, m.width-4)
-	listWidth := int(float64(totalWidth) * 0.58)
-	detailWidth := totalWidth - listWidth - 3
-
-	listHeight := m.listHeight()
-
-	listBox := boxStyle.
-		Width(listWidth).
-		Height(listHeight).
-		Render(m.renderStationList(listWidth-2, listHeight))
-
-	detailBox := boxStyle.
-		Width(detailWidth).
-		Height(listHeight).
-		Render(m.renderStationDetails(detailWidth-2, listHeight))
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, listBox, " ", detailBox)
-}
-
-func (m model) renderStationList(width, height int) string {
-	if m.loading {
-		return fmt.Sprintf("\n  %s Fetching stations from RadioBrowser...", m.spinner.View())
-	}
-
-	if len(m.stations) == 0 {
-		if m.activeTab == tabFavorites {
-			return dimStyle.Render("\n  No favorite stations yet.\n  Press 'f' on any station to save it here.")
-		}
-		return dimStyle.Render("\n  No stations found.\n  Press '/' or 's' to search with different filters.")
-	}
-
-	var rows []string
-	end := min(len(m.stations), m.offset+height)
-
-	for i := m.offset; i < end; i++ {
-		st := m.stations[i]
-
-		playIcon := "  "
-		if m.player.IsPlaying(st) {
-			playIcon = playingBadgeStyle.Render("▶ ")
-		}
-
-		favIcon := "  "
-		if m.favorites.IsFavorite(st) {
-			favIcon = favBadgeStyle.Render("★ ")
-		}
-
-		meta := []string{}
-		if st.CountryCode != "" {
-			meta = append(meta, st.CountryCode)
-		} else if st.Country != "" {
-			meta = append(meta, truncate(st.Country, 10))
-		}
-		if st.Codec != "" {
-			if st.Bitrate > 0 {
-				meta = append(meta, fmt.Sprintf("%s %dk", st.Codec, st.Bitrate))
-			} else {
-				meta = append(meta, st.Codec)
-			}
-		}
-
-		metaStr := ""
-		if len(meta) > 0 {
-			metaStr = " [" + strings.Join(meta, " · ") + "]"
-		}
-
-		var line string
-		if m.activeTab == tabFavorites {
-			if fav, ok := m.favorites.GetByStation(st); ok {
-				prefix := fmt.Sprintf("#%-2d [%s] ", fav.ID, fav.ShortName)
-				maxNameLen := max(10, width-len(metaStr)-len(prefix)-6)
-				nameStr := truncate(strings.TrimSpace(st.Name), maxNameLen)
-				line = fmt.Sprintf("%s%s%s", prefix, nameStr, dimStyle.Render(metaStr))
-			}
-		}
-		if line == "" {
-			maxNameLen := max(12, width-len(metaStr)-10)
-			nameStr := truncate(strings.TrimSpace(st.Name), maxNameLen)
-			line = fmt.Sprintf("%2d. %s%s", i+1, nameStr, dimStyle.Render(metaStr))
-		}
-
-		if i == m.cursor {
-			line = selectedRowStyle.Width(max(10, width-4)).Render(line)
-		} else {
-			line = normalRowStyle.Render(line)
-		}
-
-		rows = append(rows, playIcon+favIcon+line)
-	}
-
-	return strings.Join(rows, "\n")
-}
-
-func (m model) renderStationDetails(width, height int) string {
-	var lines []string
-
-	if len(m.stations) == 0 || m.cursor >= len(m.stations) {
-		lines = append(lines, dimStyle.Render("Select a station to view details."))
-	} else {
-		st := m.stations[m.cursor]
-
-		header := st.Name
-		if m.favorites.IsFavorite(st) {
-			header = "★ " + header
-		}
-		lines = append(lines, titleStyle.Render(truncate(header, width)))
-		lines = append(lines, "")
-
-		addField := func(label, val string) {
-			if strings.TrimSpace(val) == "" {
-				return
-			}
-			lines = append(lines, fmt.Sprintf("%s %s", labelStyle.Render(label+":"), truncate(val, max(10, width-len(label)-3))))
-		}
-
-		if fav, ok := m.favorites.GetByStation(st); ok {
-			addField("Favorite", fmt.Sprintf("#%d (%s)", fav.ID, fav.ShortName))
-		}
-		country := st.Country
-		if st.CountryCode != "" {
-			country = fmt.Sprintf("%s (%s)", st.Country, st.CountryCode)
-		}
-		addField("Country", country)
-		addField("State", st.State)
-		addField("Language", st.Language)
-
-		codecInfo := st.Codec
-		if st.Bitrate > 0 {
-			codecInfo = fmt.Sprintf("%s @ %d kbps", st.Codec, st.Bitrate)
-		}
-		addField("Audio", codecInfo)
-		addField("Tags", st.Tags)
-		addField("Votes", fmt.Sprintf("%d  |  Clicks: %d", st.Votes, st.ClickCount))
-		addField("Homepage", st.Homepage)
-
-		if streamURL, err := st.StreamURL(); err == nil {
-			addField("Stream", streamURL)
-		}
-	}
-
-	if m.visualizer != nil && m.visualizer.Enabled {
-		usedLines := len(lines) + 1
-		vizHeight := max(5, height-usedLines)
-		playing := m.player.CurrentStation() != nil
-		lines = append(lines, "")
-		lines = append(lines, m.visualizer.Render(width, vizHeight, playing))
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-func (m model) renderNowPlaying() string {
-	totalWidth := max(40, m.width-2)
-	cur := m.player.CurrentStation()
-	if cur == nil {
-		return nowPlayingStyle.Width(totalWidth).Render(
-			dimStyle.Render(fmt.Sprintf("⏹ Stopped  (Player backend: %s)", m.player.BackendName())),
-		)
-	}
-
-	track := m.player.StreamTitle()
-	info := fmt.Sprintf("▶ NOW PLAYING: %s", cur.Name)
-	if cur.Codec != "" {
-		info += fmt.Sprintf(" [%s", cur.Codec)
-		if cur.Bitrate > 0 {
-			info += fmt.Sprintf(" %dkbps", cur.Bitrate)
-		}
-		info += "]"
-	}
-	if track != "" {
-		info += fmt.Sprintf("  ♪ %s", track)
-	}
-	return nowPlayingStyle.Width(totalWidth).Render(truncate(info, totalWidth-2))
-}
-
-func (m model) renderFooter() string {
-	if m.editingSname {
-		editLine := fmt.Sprintf(
-			"%s %s  %s",
-			labelStyle.Render("Edit sname:"),
-			m.snameInput.View(),
-			dimStyle.Render("[Enter: save | Esc: cancel]"),
-		)
-		if m.errMsg != "" {
-			return lipgloss.JoinVertical(lipgloss.Left, errorStyle.Render("⚠ "+m.errMsg), editLine)
-		}
-		return editLine
-	}
-
-	var statusLine string
-	if m.errMsg != "" {
-		statusLine = errorStyle.Render("⚠ " + m.errMsg)
-	} else if m.statusMsg != "" {
-		statusLine = statusStyle.Render(m.statusMsg)
-	} else {
-		statusLine = dimStyle.Render("Ready")
-	}
-
-	bgExitState := "OFF"
-	if m.settings != nil && m.settings.ContinueOnExit {
-		bgExitState = "ON"
-	}
-	help := dimStyle.Render(
-		fmt.Sprintf("↑/↓/j/k: navigate • Enter/p: play/stop • x/Space: stop • f: fav ★ • e: sname • b: bg-exit (%s) • v: visualizer • /: search • 1/2/3/Tab: views • q: quit", bgExitState),
-	)
-
-	return lipgloss.JoinVertical(lipgloss.Left, statusLine, help)
-}
-
-func truncate(s string, maxLen int) string {
-	s = strings.ReplaceAll(s, "\n", " ")
-	s = strings.ReplaceAll(s, "\r", "")
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	if maxLen <= 1 {
-		return string(runes[:maxLen])
-	}
-	return string(runes[:maxLen-1]) + "…"
 }
