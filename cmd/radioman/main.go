@@ -5,13 +5,39 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	radiobrowser "github.com/erbekin/radioman"
 )
 
+func resolveAutoStop(settings *SettingsStore, override *time.Duration) (time.Duration, error) {
+	if override != nil {
+		return *override, nil
+	}
+	if settings == nil {
+		return 0, nil
+	}
+	return settings.AutoStopDuration()
+}
+
 func main() {
+	if len(os.Args) >= 5 && os.Args[1] == "__auto-stop-worker" {
+		targetPID, err := strconv.Atoi(os.Args[3])
+		if err != nil {
+			os.Exit(1)
+		}
+		stopAtNano, err := strconv.ParseInt(os.Args[4], 10, 64)
+		if err != nil {
+			os.Exit(1)
+		}
+		if err := runAutoStopWorker(os.Args[2], targetPID, stopAtNano); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
 	var (
 		cliMode       = flag.Bool("c", false, "Run in CLI mode (non-interactive)")
 		searchName    = flag.String("search", "", "Initial station name search filter")
@@ -21,8 +47,21 @@ func main() {
 		visualizer    = flag.Bool("visualizer", false, "Enable the music visualizer on startup (toggle in TUI with 'v')")
 		limit         = flag.Int("limit", 50, "Maximum number of stations to fetch")
 		playerFlag    = flag.String("player", "", "Preferred audio player binary (mpv, ffplay, vlc)")
+		autoStopFlag  = flag.String("auto-stop", "", "Auto-stop timer override (e.g. 10m, 1.5h, 0 to disable)")
 	)
 	flag.Parse()
+
+	var autoStopOverride *time.Duration
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "auto-stop" {
+			dur, err := ParseAutoStopDuration(*autoStopFlag)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "radioman: invalid -auto-stop value: %v\n", err)
+				os.Exit(1)
+			}
+			autoStopOverride = &dur
+		}
+	})
 
 	isSettingsCmd := flag.NArg() > 0 &&
 		(flag.Arg(0) == "settings" || flag.Arg(0) == "config") &&
@@ -30,7 +69,7 @@ func main() {
 		!*showFavorites && !*visualizer
 
 	if *cliMode || isSettingsCmd {
-		if err := RunCLI(flag.Args(), *playerFlag, os.Stdout); err != nil {
+		if err := RunCLI(flag.Args(), *playerFlag, autoStopOverride, os.Stdout); err != nil {
 			fmt.Fprintf(os.Stderr, "radioman: %v\n", err)
 			os.Exit(1)
 		}
@@ -64,6 +103,11 @@ func main() {
 
 	backend, playerErr := DetectPlayer(*playerFlag)
 	bg := NewBackgroundController(DefaultStatePath(), *playerFlag)
+	if autoStopDur, err := resolveAutoStop(settings, autoStopOverride); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: invalid auto_stop setting: %v\n", err)
+	} else {
+		bg.SetAutoStop(autoStopDur)
+	}
 	player := NewPlayer(backend, bg)
 	player.SyncFromState(client)
 	defer func() {

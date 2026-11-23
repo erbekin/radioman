@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	radiobrowser "github.com/erbekin/radioman"
 )
@@ -17,6 +18,7 @@ func TestPlayerSyncAndShutdown(t *testing.T) {
 	}
 
 	// Simulate an active background player started externally (e.g., via CLI).
+	stopAt := time.Now().Add(10 * time.Minute)
 	initial := &PlayerState{
 		PID:        os.Getpid(),
 		Backend:    "",
@@ -24,6 +26,7 @@ func TestPlayerSyncAndShutdown(t *testing.T) {
 		Station:    &st,
 		FavoriteID: 7,
 		ShortName:  "Sync-Radio",
+		StopAt:     stopAt,
 	}
 	if err := SavePlayerState(statePath, initial); err != nil {
 		t.Fatalf("SavePlayerState: %v", err)
@@ -40,6 +43,9 @@ func TestPlayerSyncAndShutdown(t *testing.T) {
 	cur := p.CurrentStation()
 	if cur == nil || cur.StationUUID != st.StationUUID {
 		t.Fatalf("CurrentStation() = %+v, want %q", cur, st.StationUUID)
+	}
+	if !p.StopAt().Equal(stopAt) {
+		t.Fatalf("StopAt() = %v, want %v", p.StopAt(), stopAt)
 	}
 
 	// Shutdown on an externally-started session must leave background playback intact.
@@ -135,5 +141,61 @@ func TestPlayerShutdownContinueOnExit(t *testing.T) {
 	}
 	if !after.Playing || after.PID != initial.PID {
 		t.Fatalf("expected Shutdown(true) to keep TUI-started playback running, got %+v", after)
+	}
+}
+
+func TestRunAutoStopWorker(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "player_state.json")
+	st := radiobrowser.Station{
+		StationUUID: "auto-1",
+		Name:        "Timer Radio",
+		URL:         "http://example.com/timer",
+	}
+	stopAt := time.Now().Add(-10 * time.Millisecond)
+
+	// 1. Mismatched PID should not stop playback.
+	initial := &PlayerState{
+		PID:      99999999,
+		TimerPID: 88888888,
+		Playing:  true,
+		Station:  &st,
+		StopAt:   stopAt,
+	}
+	if err := SavePlayerState(statePath, initial); err != nil {
+		t.Fatalf("SavePlayerState: %v", err)
+	}
+	if err := runAutoStopWorker(statePath, 11111111, stopAt.UnixNano()); err != nil {
+		t.Fatalf("runAutoStopWorker mismatch PID: %v", err)
+	}
+	afterMismatch, err := LoadPlayerState(statePath)
+	if err != nil {
+		t.Fatalf("LoadPlayerState: %v", err)
+	}
+	if !afterMismatch.Playing || afterMismatch.PID != 99999999 {
+		t.Fatalf("expected mismatched PID not to stop state, got %+v", afterMismatch)
+	}
+
+	// 2. Mismatched StopAt should not stop playback.
+	if err := runAutoStopWorker(statePath, 99999999, stopAt.Add(time.Second).UnixNano()); err != nil {
+		t.Fatalf("runAutoStopWorker mismatch StopAt: %v", err)
+	}
+	afterStopMismatch, err := LoadPlayerState(statePath)
+	if err != nil {
+		t.Fatalf("LoadPlayerState: %v", err)
+	}
+	if !afterStopMismatch.Playing {
+		t.Fatalf("expected mismatched StopAt not to stop state, got %+v", afterStopMismatch)
+	}
+
+	// 3. Matching PID and StopAt should stop playback and clear timer fields.
+	if err := runAutoStopWorker(statePath, 99999999, stopAt.UnixNano()); err != nil {
+		t.Fatalf("runAutoStopWorker matching: %v", err)
+	}
+	afterMatch, err := LoadPlayerState(statePath)
+	if err != nil {
+		t.Fatalf("LoadPlayerState: %v", err)
+	}
+	if afterMatch.Playing || afterMatch.PID != 0 || afterMatch.TimerPID != 0 || !afterMatch.StopAt.IsZero() {
+		t.Fatalf("expected matching worker to clear playing state, got %+v", afterMatch)
 	}
 }

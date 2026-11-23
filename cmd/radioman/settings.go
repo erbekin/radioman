@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 // Settings holds persistent user preferences for radioman.
 type Settings struct {
-	ContinueOnExit bool `json:"continue_on_exit"`
+	ContinueOnExit bool   `json:"continue_on_exit"`
+	AutoStop       string `json:"auto_stop"`
 }
 
 // SettingsStore manages loading and saving Settings on disk.
@@ -21,6 +24,7 @@ type SettingsStore struct {
 func DefaultSettings() Settings {
 	return Settings{
 		ContinueOnExit: true,
+		AutoStop:       "0",
 	}
 }
 
@@ -58,6 +62,9 @@ func LoadSettingsFromPath(path string) (*SettingsStore, error) {
 		store.Settings = DefaultSettings()
 		return store, err
 	}
+	if strings.TrimSpace(store.Settings.AutoStop) == "" {
+		store.Settings.AutoStop = "0"
+	}
 	return store, nil
 }
 
@@ -83,4 +90,20 @@ func (s *SettingsStore) ToggleContinueOnExit() (bool, error) {
 func (s *SettingsStore) SetContinueOnExit(v bool) error {
 	s.ContinueOnExit = v
 	return s.Save()
+}
+
+func (s *SettingsStore) AutoStopDuration() (time.Duration, error) {
+	return ParseAutoStopDuration(s.AutoStop)
+}
+
+func (s *SettingsStore) SetAutoStop(raw string) (string, time.Duration, error) {
+	norm, dur, err := NormalizeAutoStopValue(raw)
+	if err != nil {
+		return "", 0, err
+	}
+	s.AutoStop = norm
+	if err := s.Save(); err != nil {
+		return "", 0, err
+	}
+	return norm, dur, nil
 }

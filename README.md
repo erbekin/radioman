@@ -46,6 +46,7 @@ radioman
 | `-visualizer` | Enable the audio visualizer on startup |
 | `-limit <n>` | Maximum number of stations to fetch (default `50`) |
 | `-player <mpv\|ffplay\|vlc>` | Preferred audio player backend |
+| `-auto-stop <dur\|0\|off>` | Override `auto_stop` timer for this command/session (e.g. `10m`, `1.5h`, `0`) |
 | `-c` | Run in CLI mode (non-interactive) |
 
 ### TUI Keybindings
@@ -81,6 +82,7 @@ radioman
 | `radioman -c player current` | `pc` | Print detailed info for the current station |
 | `radioman settings` (or `-c settings`) | — | Show current settings |
 | `radioman settings continue_on_exit <on\|off>` | — | Enable or disable continuing playback when TUI exits |
+| `radioman settings auto_stop <dur\|0\|off>` | — | Automatically stop playback after `T` (e.g. `10m`, `1.5h`, `0` to disable) |
 
 ### Favorites, `<idx>`, and `<sname>`
 
@@ -99,7 +101,7 @@ Stored in your OS user config directory (`<UserConfigDir>/radioman/`, e.g. `%App
 
 - `favorites.json` — saved stations with `id` and `sname`
 - `player_state.json` — active background player PID, backend, and current station
-- `settings.json` — persistent settings (`continue_on_exit`)
+- `settings.json` — persistent settings (`continue_on_exit`, `auto_stop`)
 
 ## Go Library Usage
 

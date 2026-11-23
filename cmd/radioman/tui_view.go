@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
@@ -480,6 +481,13 @@ func (m model) renderNowPlaying() string {
 		}
 	}
 	meta = append(meta, m.player.BackendName())
+	if cur != nil {
+		if stopAt := m.player.StopAt(); !stopAt.IsZero() {
+			if rem := time.Until(stopAt); rem > 0 {
+				meta = append(meta, "stop "+FormatRemaining(rem))
+			}
+		}
+	}
 	right := on(dimStyle).Render(strings.Join(meta, " · ") + " · bg-exit ")
 	if m.settings != nil && m.settings.ContinueOnExit {
 		right += on(playingBadgeStyle).Render("on ")

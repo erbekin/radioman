@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	radiobrowser "github.com/erbekin/radioman"
 )
@@ -117,7 +119,7 @@ func TestCLIWorkflow(t *testing.T) {
 	if err := runCLIWithDeps([]string{"settings"}, favs, bg, settings, &out); err != nil {
 		t.Fatalf("settings failed: %v", err)
 	}
-	if !strings.Contains(out.String(), "continue_on_exit: true") {
+	if !strings.Contains(out.String(), "continue_on_exit: true") || !strings.Contains(out.String(), "auto_stop: 0") {
 		t.Fatalf("unexpected settings output: %s", out.String())
 	}
 
@@ -127,5 +129,79 @@ func TestCLIWorkflow(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "continue_on_exit: false") || settings.ContinueOnExit {
 		t.Fatalf("expected continue_on_exit: false, got %s (val=%v)", out.String(), settings.ContinueOnExit)
+	}
+
+	out.Reset()
+	if err := runCLIWithDeps([]string{"settings", "auto_stop", "10m"}, favs, bg, settings, &out); err != nil {
+		t.Fatalf("settings auto_stop 10m failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "auto_stop: 10m") || settings.AutoStop != "10m" {
+		t.Fatalf("expected auto_stop: 10m, got %s (val=%q)", out.String(), settings.AutoStop)
+	}
+
+	out.Reset()
+	if err := runCLIWithDeps([]string{"settings", "auto_stop", "0"}, favs, bg, settings, &out); err != nil {
+		t.Fatalf("settings auto_stop 0 failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "auto_stop: 0") || settings.AutoStop != "0" {
+		t.Fatalf("expected auto_stop: 0, got %s (val=%q)", out.String(), settings.AutoStop)
+	}
+
+	out.Reset()
+	if err := runCLIWithDeps([]string{"settings", "auto_stop", "badunit"}, favs, bg, settings, &out); err == nil {
+		t.Fatal("expected invalid auto_stop value to fail")
+	}
+
+	// 7. player / pc status output with active StopAt
+	active := &PlayerState{
+		PID:        os.Getpid(),
+		Playing:    true,
+		Station:    &favs.Entries[0].Station,
+		FavoriteID: favs.Entries[0].ID,
+		ShortName:  favs.Entries[0].ShortName,
+		StopAt:     time.Now().Add(5 * time.Minute),
+	}
+	if err := SavePlayerState(statePath, active); err != nil {
+		t.Fatalf("SavePlayerState active: %v", err)
+	}
+	out.Reset()
+	if err := runCLIWithDeps([]string{"player"}, favs, bg, settings, &out); err != nil {
+		t.Fatalf("player with active StopAt failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "Auto-stop: in ") {
+		t.Fatalf("expected Auto-stop line in player output, got: %s", out.String())
+	}
+	out.Reset()
+	if err := runCLIWithDeps([]string{"pc"}, favs, bg, settings, &out); err != nil {
+		t.Fatalf("pc with active StopAt failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "Auto-stop: in ") {
+		t.Fatalf("expected Auto-stop line in pc output, got: %s", out.String())
+	}
+}
+
+func TestResolveAutoStopOverride(t *testing.T) {
+	settings := &SettingsStore{
+		Settings: Settings{
+			ContinueOnExit: true,
+			AutoStop:       "10m",
+		},
+	}
+
+	d, err := resolveAutoStop(settings, nil)
+	if err != nil || d != 10*time.Minute {
+		t.Fatalf("resolveAutoStop(nil) = (%v, %v), want 10m", d, err)
+	}
+
+	override := 2 * time.Minute
+	d, err = resolveAutoStop(settings, &override)
+	if err != nil || d != 2*time.Minute {
+		t.Fatalf("resolveAutoStop(2m) = (%v, %v), want 2m", d, err)
+	}
+
+	zero := time.Duration(0)
+	d, err = resolveAutoStop(settings, &zero)
+	if err != nil || d != 0 {
+		t.Fatalf("resolveAutoStop(0) = (%v, %v), want 0", d, err)
 	}
 }

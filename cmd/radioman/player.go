@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 
 	radiobrowser "github.com/erbekin/radioman"
 )
@@ -26,6 +27,7 @@ type Player struct {
 	bg          *BackgroundController
 	pid         int
 	ownedByTUI  bool
+	stopAt      time.Time
 	metaCancel  context.CancelFunc
 	current     *radiobrowser.Station
 	streamTitle string
@@ -138,6 +140,7 @@ func (p *Player) Play(client *radiobrowser.Client, station radiobrowser.Station,
 	p.pid = st.PID
 	p.current = &stCopy
 	p.ownedByTUI = true
+	p.stopAt = st.StopAt
 	p.streamTitle = ""
 	p.streamBands = [32]float64{}
 	p.hasSignal = false
@@ -171,6 +174,7 @@ func (p *Player) Stop() {
 	p.pid = 0
 	p.current = nil
 	p.ownedByTUI = false
+	p.stopAt = time.Time{}
 	p.streamTitle = ""
 	p.streamBands = [32]float64{}
 	p.hasSignal = false
@@ -198,6 +202,7 @@ func (p *Player) SyncFromState(client *radiobrowser.Client) {
 			p.pid = 0
 			p.current = nil
 			p.ownedByTUI = false
+			p.stopAt = time.Time{}
 			p.streamTitle = ""
 			p.streamBands = [32]float64{}
 			p.hasSignal = false
@@ -206,6 +211,7 @@ func (p *Player) SyncFromState(client *radiobrowser.Client) {
 	}
 
 	if p.pid == st.PID && p.current != nil && sameStation(*p.current, *st.Station) {
+		p.stopAt = st.StopAt
 		return
 	}
 
@@ -218,6 +224,7 @@ func (p *Player) SyncFromState(client *radiobrowser.Client) {
 	p.pid = st.PID
 	p.current = &stCopy
 	p.ownedByTUI = false
+	p.stopAt = st.StopAt
 	p.streamTitle = ""
 	p.streamBands = [32]float64{}
 	p.hasSignal = false
@@ -264,6 +271,12 @@ func (p *Player) StreamTitle() string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.streamTitle
+}
+
+func (p *Player) StopAt() time.Time {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.stopAt
 }
 
 func (p *Player) IsPlaying(station radiobrowser.Station) bool {

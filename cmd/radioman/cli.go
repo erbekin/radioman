@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	radiobrowser "github.com/erbekin/radioman"
 )
 
-func RunCLI(args []string, preferredPlayer string, out io.Writer) error {
+func RunCLI(args []string, preferredPlayer string, autoStopOverride *time.Duration, out io.Writer) error {
 	favs, err := LoadFavorites()
 	if err != nil {
 		return fmt.Errorf("load favorites: %w", err)
@@ -19,6 +20,11 @@ func RunCLI(args []string, preferredPlayer string, out io.Writer) error {
 		return fmt.Errorf("load settings: %w", err)
 	}
 	bg := NewBackgroundController(DefaultStatePath(), preferredPlayer)
+	if autoStopDur, err := resolveAutoStop(settings, autoStopOverride); err != nil {
+		return fmt.Errorf("auto_stop setting: %w", err)
+	} else {
+		bg.SetAutoStop(autoStopDur)
+	}
 	return runCLIWithDeps(args, favs, bg, settings, out)
 }
 
@@ -106,7 +112,11 @@ func runFavsCLI(args []string, favs *FavoritesStore, bg *BackgroundController, o
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "Playing #%d (%s) %s via %s [pid %d]\n", fav.ID, fav.ShortName, fav.Station.Name, st.Backend, st.PID)
+		autoStopSuffix := ""
+		if !st.StopAt.IsZero() {
+			autoStopSuffix = fmt.Sprintf(" (auto-stop in %s)", FormatRemaining(time.Until(st.StopAt)))
+		}
+		fmt.Fprintf(out, "Playing #%d (%s) %s via %s [pid %d]%s\n", fav.ID, fav.ShortName, fav.Station.Name, st.Backend, st.PID, autoStopSuffix)
 		return nil
 
 	case "rename", "sname":
@@ -142,6 +152,9 @@ func runPlayerCLI(args []string, bg *BackgroundController, out io.Writer) error 
 		}
 		if st.Playing {
 			fmt.Fprintf(out, "Status: playing (pid %d)\n", st.PID)
+			if !st.StopAt.IsZero() {
+				fmt.Fprintf(out, "Auto-stop: in %s (at %s)\n", FormatRemaining(time.Until(st.StopAt)), st.StopAt.Local().Format("15:04:05"))
+			}
 		} else {
 			fmt.Fprintln(out, "Status: stopped")
 		}
@@ -159,7 +172,11 @@ func runPlayerCLI(args []string, bg *BackgroundController, out io.Writer) error 
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "Playing %s via %s [pid %d]\n", formatCurrentLabel(st), st.Backend, st.PID)
+		autoStopSuffix := ""
+		if !st.StopAt.IsZero() {
+			autoStopSuffix = fmt.Sprintf(" (auto-stop in %s)", FormatRemaining(time.Until(st.StopAt)))
+		}
+		fmt.Fprintf(out, "Playing %s via %s [pid %d]%s\n", formatCurrentLabel(st), st.Backend, st.PID, autoStopSuffix)
 		return nil
 
 	case "stop":
@@ -200,6 +217,9 @@ func runPlayerCLI(args []string, bg *BackgroundController, out io.Writer) error 
 			fmt.Fprintf(out, "Favorite: #%d (%s)\n", st.FavoriteID, st.ShortName)
 		}
 		fmt.Fprintf(out, "Status: %s\n", status)
+		if st.Playing && !st.StopAt.IsZero() {
+			fmt.Fprintf(out, "Auto-stop: in %s (at %s)\n", FormatRemaining(time.Until(st.StopAt)), st.StopAt.Local().Format("15:04:05"))
+		}
 		if st.Station.Country != "" {
 			if st.Station.CountryCode != "" {
 				fmt.Fprintf(out, "Country: %s (%s)\n", st.Station.Country, st.Station.CountryCode)
@@ -256,31 +276,48 @@ func formatStationMeta(st radiobrowser.Station) string {
 func runSettingsCLI(args []string, settings *SettingsStore, out io.Writer) error {
 	if len(args) == 0 {
 		fmt.Fprintf(out, "continue_on_exit: %v\n", settings.ContinueOnExit)
+		fmt.Fprintf(out, "auto_stop: %s\n", settings.AutoStop)
 		return nil
 	}
-	if args[0] != "continue_on_exit" {
-		return fmt.Errorf("unknown setting %q (available: continue_on_exit)", args[0])
-	}
-	if len(args) < 2 {
+
+	switch args[0] {
+	case "continue_on_exit":
+		if len(args) < 2 {
+			fmt.Fprintf(out, "continue_on_exit: %v\n", settings.ContinueOnExit)
+			return nil
+		}
+
+		var val bool
+		switch strings.ToLower(strings.TrimSpace(args[1])) {
+		case "true", "1", "on", "yes":
+			val = true
+		case "false", "0", "off", "no":
+			val = false
+		default:
+			return fmt.Errorf("invalid boolean value %q (use true/false or on/off)", args[1])
+		}
+
+		if err := settings.SetContinueOnExit(val); err != nil {
+			return err
+		}
 		fmt.Fprintf(out, "continue_on_exit: %v\n", settings.ContinueOnExit)
 		return nil
-	}
 
-	var val bool
-	switch strings.ToLower(strings.TrimSpace(args[1])) {
-	case "true", "1", "on", "yes":
-		val = true
-	case "false", "0", "off", "no":
-		val = false
+	case "auto_stop":
+		if len(args) < 2 {
+			fmt.Fprintf(out, "auto_stop: %s\n", settings.AutoStop)
+			return nil
+		}
+		raw := strings.Join(args[1:], " ")
+		if _, _, err := settings.SetAutoStop(raw); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "auto_stop: %s\n", settings.AutoStop)
+		return nil
+
 	default:
-		return fmt.Errorf("invalid boolean value %q (use true/false or on/off)", args[1])
+		return fmt.Errorf("unknown setting %q (available: continue_on_exit, auto_stop)", args[0])
 	}
-
-	if err := settings.SetContinueOnExit(val); err != nil {
-		return err
-	}
-	fmt.Fprintf(out, "continue_on_exit: %v\n", settings.ContinueOnExit)
-	return nil
 }
 
 func printCLIHelp(out io.Writer) {
@@ -296,6 +333,10 @@ Commands:
   player current                   Print details for the current station
   settings                         Show current settings (also works without -c)
   settings continue_on_exit <on|off>  Toggle whether TUI playback continues on exit
+  settings auto_stop <dur|0|off>      Automatically stop playback after T (e.g. 10m, 1.5h, 0)
+
+Flags:
+  -auto-stop <dur|0|off>           Override auto_stop timer for this command/session
 
 Short aliases:
   fl                               favs list
