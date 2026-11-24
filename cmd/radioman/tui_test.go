@@ -51,7 +51,7 @@ func newTestTUIModel(t *testing.T, opts TUIOptions) model {
 }
 
 func TestTUIViewLayoutAndFooter(t *testing.T) {
-	m := newTestTUIModel(t, TUIOptions{InitialTab: tabTop, Visualizer: true})
+	m := newTestTUIModel(t, TUIOptions{InitialTab: tabTop})
 
 	for _, size := range []struct{ w, h int }{
 		{100, 30},

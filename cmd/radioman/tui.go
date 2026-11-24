@@ -41,7 +41,6 @@ type playResultMsg struct {
 }
 
 type tickMsg time.Time
-type vizTickMsg time.Time
 type playerSyncMsg struct{}
 
 type TUIOptions struct {
@@ -50,17 +49,15 @@ type TUIOptions struct {
 	InitialCountry string
 	InitialTag     string
 	Limit          int
-	Visualizer     bool
 	PlayerWarning  string
 }
 
 type model struct {
-	client     *radiobrowser.Client
-	player     *Player
-	favorites  *FavoritesStore
-	settings   *SettingsStore
-	visualizer *Visualizer
-	limit      int
+	client    *radiobrowser.Client
+	player    *Player
+	favorites *FavoritesStore
+	settings  *SettingsStore
+	limit     int
 
 	activeTab tabIndex
 	stations  []radiobrowser.Station
@@ -131,7 +128,6 @@ func NewTUIModel(
 		player:       player,
 		favorites:    favorites,
 		settings:     settings,
-		visualizer:   NewVisualizer(opts.Visualizer),
 		limit:        limit,
 		activeTab:    opts.InitialTab,
 		nameInput:    nameIn,
@@ -158,9 +154,6 @@ func (m model) Init() tea.Cmd {
 		m.spinner.Tick,
 		tickCmd(),
 	}
-	if m.visualizer.Enabled {
-		cmds = append(cmds, vizTickCmd())
-	}
 	switch m.activeTab {
 	case tabTop:
 		cmds = append(cmds, m.fetchTopStationsCmd())
@@ -177,12 +170,6 @@ func (m model) Init() tea.Cmd {
 func tickCmd() tea.Cmd {
 	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
-	})
-}
-
-func vizTickCmd() tea.Cmd {
-	return tea.Tick(65*time.Millisecond, func(t time.Time) tea.Msg {
-		return vizTickMsg(t)
 	})
 }
 
@@ -261,15 +248,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case playerSyncMsg:
 		return m, nil
-
-	case vizTickMsg:
-		if !m.visualizer.Enabled {
-			return m, nil
-		}
-		playing := m.player.CurrentStation() != nil
-		bands, hasSignal := m.player.AudioSpectrum()
-		m.visualizer.Step(playing, bands, hasSignal)
-		return m, vizTickCmd()
 
 	case spinner.TickMsg:
 		if m.loading {
@@ -504,25 +482,6 @@ func (m model) updateNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.player.Stop()
 			m.statusMsg = fmt.Sprintf("Stopped %s", cur.Name)
 		}
-		return m, nil
-
-	case "v":
-		enabled := m.visualizer.Toggle()
-		if enabled {
-			m.statusMsg = fmt.Sprintf("Visualizer enabled (%s)", m.visualizer.Mode.String())
-			return m, vizTickCmd()
-		}
-		m.statusMsg = "Visualizer hidden"
-		return m, nil
-
-	case "m":
-		if !m.visualizer.Enabled {
-			m.visualizer.Enabled = true
-			m.statusMsg = fmt.Sprintf("Visualizer enabled (%s)", m.visualizer.Mode.String())
-			return m, vizTickCmd()
-		}
-		mode := m.visualizer.NextMode()
-		m.statusMsg = fmt.Sprintf("Visualizer mode: %s", mode.String())
 		return m, nil
 
 	case "f":

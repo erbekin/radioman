@@ -44,7 +44,6 @@ func main() {
 		searchCountry = flag.String("country", "", "Initial country or 2-letter country code filter")
 		searchTag     = flag.String("tag", "", "Initial tag/genre filter (e.g. jazz, rock, news)")
 		showFavorites = flag.Bool("favorites", false, "Start directly in the Favorites view")
-		visualizer    = flag.Bool("visualizer", false, "Enable the music visualizer on startup (toggle in TUI with 'v')")
 		limit         = flag.Int("limit", 50, "Maximum number of stations to fetch")
 		playerFlag    = flag.String("player", "", "Preferred audio player binary (mpv, ffplay, vlc)")
 		autoStopFlag  = flag.String("auto-stop", "", "Auto-stop timer override (e.g. 10m, 1.5h, 0 to disable)")
@@ -66,7 +65,7 @@ func main() {
 	isSettingsCmd := flag.NArg() > 0 &&
 		(flag.Arg(0) == "settings" || flag.Arg(0) == "config") &&
 		*searchName == "" && *searchCountry == "" && *searchTag == "" &&
-		!*showFavorites && !*visualizer
+		!*showFavorites
 
 	if *cliMode || isSettingsCmd {
 		if err := RunCLI(flag.Args(), *playerFlag, autoStopOverride, os.Stdout); err != nil {
@@ -132,7 +131,6 @@ func main() {
 		InitialCountry: *searchCountry,
 		InitialTag:     *searchTag,
 		Limit:          *limit,
-		Visualizer:     *visualizer,
 		PlayerWarning:  playerWarning,
 	})
 

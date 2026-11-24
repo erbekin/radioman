@@ -272,7 +272,7 @@ func (m model) renderMainContent(listH int) string {
 	detailW := total - listW - 1
 
 	list := renderPanel(title, info, m.renderStationList(listW-4, listH), listW, panelH, focused)
-	detail := renderPanel("Details", "", m.renderStationDetails(detailW-4, listH), detailW, panelH, false)
+	detail := renderPanel("Details", "", m.renderStationDetails(detailW-4), detailW, panelH, false)
 	return lipgloss.JoinHorizontal(lipgloss.Top, list, " ", detail)
 }
 
@@ -390,7 +390,7 @@ func (m model) renderStationRow(i, width, numW int) string {
 	return prefix + bg(nameStyle).Render(name) + sp(gap) + bg(dimStyle).Render(meta)
 }
 
-func (m model) renderStationDetails(width, height int) string {
+func (m model) renderStationDetails(width int) string {
 	var lines []string
 
 	if len(m.stations) == 0 || m.cursor >= len(m.stations) {
@@ -438,15 +438,6 @@ func (m model) renderStationDetails(width, height int) string {
 		addField("Homepage", st.Homepage)
 		if streamURL, err := st.StreamURL(); err == nil {
 			addField("Stream", streamURL)
-		}
-	}
-
-	if m.visualizer != nil && m.visualizer.Enabled {
-		avail := height - len(lines) - 2 // blank line + separator
-		if avail >= 4 {
-			playing := m.player.CurrentStation() != nil
-			lines = append(lines, "", dimStyle.Render(strings.Repeat("─", width)))
-			lines = append(lines, m.visualizer.Render(width, avail, playing))
 		}
 	}
 
@@ -560,7 +551,7 @@ func (m model) renderFooter() string {
 		return m.renderHelp()
 	default:
 		left = m.statusLine()
-		hints = []keyHint{{"↵", "play/stop"}, {"/", "search"}, {"f", "favorite"}, {"v", "visualizer"}, {"q", "quit"}}
+		hints = []keyHint{{"↵", "play/stop"}, {"/", "search"}, {"f", "favorite"}, {"q", "quit"}}
 	}
 
 	right := renderHints(hints, tail, w*3/5)
@@ -580,7 +571,7 @@ func (m model) renderHelp() string {
 		keys  []keyHint
 	}{
 		{"Navigate", []keyHint{{"↑↓ / jk", "move"}, {"pgup/pgdn", "page"}, {"g / G", "first / last"}, {"1 2 3 tab", "switch view"}}},
-		{"Playback", []keyHint{{"↵ / p", "play / stop"}, {"x / space", "stop"}, {"b", "bg-exit (" + bgExit + ")"}, {"v / m", "visualizer / mode"}}},
+		{"Playback", []keyHint{{"↵ / p", "play / stop"}, {"x / space", "stop"}, {"b", "bg-exit (" + bgExit + ")"}}},
 		{"Stations", []keyHint{{"/ s", "search"}, {"f", "favorite"}, {"e", "short name"}, {"r", "refresh"}}},
 		{"General", []keyHint{{"?", "close help"}, {"esc", "close help"}, {"q", "quit"}}},
 	}

@@ -43,7 +43,6 @@ radioman
 | `-country <name\|ISO-2>` | Initial country or 2-letter country code filter |
 | `-tag <genre>` | Initial tag/genre filter (e.g. `jazz`, `rock`, `news`) |
 | `-favorites` | Start directly in the Favorites tab |
-| `-visualizer` | Enable the audio visualizer on startup |
 | `-limit <n>` | Maximum number of stations to fetch (default `50`) |
 | `-player <mpv\|ffplay\|vlc>` | Preferred audio player backend |
 | `-auto-stop <dur\|0\|off>` | Override `auto_stop` timer for this command/session (e.g. `10m`, `1.5h`, `0`) |
@@ -59,7 +58,6 @@ radioman
 | `f` | Toggle favorite (`★`) on selected station |
 | `e` | Edit short name (`sname`) of selected favorite |
 | `b` | Toggle **continue playing on exit** (`ON`/`OFF`) |
-| `v` / `m` | Toggle visualizer / Cycle visualizer mode (`Spectrum Bars`, `Mirror EQ`, `Waveform`) |
 | `/` or `s` | Open/focus search filters (`Tab` to switch fields, `Enter` to search, `Esc` to cancel) |
 | `1` / `2` / `3` / `Tab` | Switch between Top Stations, Search, and Favorites |
 | `r` | Refresh current view |

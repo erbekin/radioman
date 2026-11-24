@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"os/exec"
 	"strings"
@@ -31,8 +30,6 @@ type Player struct {
 	metaCancel  context.CancelFunc
 	current     *radiobrowser.Station
 	streamTitle string
-	streamBands [32]float64
-	hasSignal   bool
 }
 
 func DetectPlayer(preferred string) (PlayerBackend, error) {
@@ -142,8 +139,6 @@ func (p *Player) Play(client *radiobrowser.Client, station radiobrowser.Station,
 	p.ownedByTUI = true
 	p.stopAt = st.StopAt
 	p.streamTitle = ""
-	p.streamBands = [32]float64{}
-	p.hasSignal = false
 	if st.Backend != "" && p.backend.Name == "" {
 		p.backend = PlayerBackend{Name: st.Backend, Path: st.BackendPath}
 	}
@@ -176,8 +171,6 @@ func (p *Player) Stop() {
 	p.ownedByTUI = false
 	p.stopAt = time.Time{}
 	p.streamTitle = ""
-	p.streamBands = [32]float64{}
-	p.hasSignal = false
 }
 
 // SyncFromState reconciles the TUI player's in-memory state with player_state.json.
@@ -204,8 +197,6 @@ func (p *Player) SyncFromState(client *radiobrowser.Client) {
 			p.ownedByTUI = false
 			p.stopAt = time.Time{}
 			p.streamTitle = ""
-			p.streamBands = [32]float64{}
-			p.hasSignal = false
 		}
 		return
 	}
@@ -226,8 +217,6 @@ func (p *Player) SyncFromState(client *radiobrowser.Client) {
 	p.ownedByTUI = false
 	p.stopAt = st.StopAt
 	p.streamTitle = ""
-	p.streamBands = [32]float64{}
-	p.hasSignal = false
 	if st.Backend != "" && p.backend.Name == "" {
 		p.backend = PlayerBackend{Name: st.Backend, Path: st.BackendPath}
 	}
@@ -288,56 +277,6 @@ func (p *Player) IsPlaying(station radiobrowser.Station) bool {
 	return sameStation(*p.current, station)
 }
 
-func (p *Player) AudioSpectrum() ([32]float64, bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.streamBands, p.hasSignal
-}
-
-func (p *Player) analyzeAudioChunk(station radiobrowser.Station, chunk []byte) {
-	if len(chunk) < 64 {
-		return
-	}
-
-	var bands [32]float64
-	step := max(1, len(chunk)/32)
-	for b := range 32 {
-		start := b * step
-		end := min(len(chunk), start+step)
-		if start >= end {
-			break
-		}
-		var sumDiff float64
-		var zc int
-		prev := int(chunk[start]) - 128
-		for i := start + 1; i < end; i++ {
-			cur := int(chunk[i]) - 128
-			diff := math.Abs(float64(cur - prev))
-			sumDiff += diff
-			if (prev < 0 && cur >= 0) || (prev >= 0 && cur < 0) {
-				zc++
-			}
-			prev = cur
-		}
-		n := float64(max(1, end-start-1))
-		avgDiff := sumDiff / n / 128.0
-		zcRate := float64(zc) / n
-
-		// Shape frequency curve (stronger bass/mid, natural treble rolloff)
-		freqPos := float64(b) / 31.0
-		envelope := 1.05 - 0.35*freqPos
-		val := (avgDiff*0.65 + zcRate*0.55) * envelope
-		bands[b] = clamp01(val)
-	}
-
-	p.mu.Lock()
-	if p.current != nil && sameStation(*p.current, station) {
-		p.streamBands = bands
-		p.hasSignal = true
-	}
-	p.mu.Unlock()
-}
-
 func (p *Player) watchICYMetadata(ctx context.Context, client *radiobrowser.Client, station radiobrowser.Station) {
 	stream, err := client.OpenStream(ctx, station)
 	if err != nil {
@@ -346,26 +285,15 @@ func (p *Player) watchICYMetadata(ctx context.Context, client *radiobrowser.Clie
 	defer stream.Close()
 
 	if stream.MetadataInterval <= 0 {
-		buf := make([]byte, 4096)
-		for {
-			n, err := stream.Read(buf)
-			if n > 0 {
-				p.analyzeAudioChunk(station, buf[:n])
-			}
-			if err != nil {
-				return
-			}
-		}
+		return
 	}
 
-	audioBuf := make([]byte, stream.MetadataInterval)
 	lenByte := make([]byte, 1)
 
 	for {
-		if _, err := io.ReadFull(stream, audioBuf); err != nil {
+		if _, err := io.CopyN(io.Discard, stream, int64(stream.MetadataInterval)); err != nil {
 			return
 		}
-		p.analyzeAudioChunk(station, audioBuf)
 		if _, err := io.ReadFull(stream, lenByte); err != nil {
 			return
 		}
