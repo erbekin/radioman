@@ -50,7 +50,11 @@ func (c *Client) OpenStream(ctx context.Context, station Station) (*Stream, erro
 	}
 	request.Header.Set("Icy-MetaData", "1")
 
-	response, err := c.httpClient.Do(request)
+	streamClient := c.streamClient
+	if streamClient == nil {
+		streamClient = newStreamHTTPClient(c.httpClient)
+	}
+	response, err := streamClient.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("open stream: %w", err)
 	}

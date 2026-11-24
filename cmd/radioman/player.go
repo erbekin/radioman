@@ -277,25 +277,53 @@ func (p *Player) IsPlaying(station radiobrowser.Station) bool {
 	return sameStation(*p.current, station)
 }
 
+var (
+	icyInitialBackoff = time.Second
+	icyMaxBackoff     = 30 * time.Second
+)
+
 func (p *Player) watchICYMetadata(ctx context.Context, client *radiobrowser.Client, station radiobrowser.Station) {
+	backoff := icyInitialBackoff
+	for ctx.Err() == nil {
+		started := time.Now()
+		icySupported, gotMeta, _ := p.readICYStream(ctx, client, station)
+		if !icySupported || ctx.Err() != nil {
+			return
+		}
+		if gotMeta || time.Since(started) >= 10*time.Second {
+			backoff = icyInitialBackoff
+		}
+
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		backoff = min(backoff*2, icyMaxBackoff)
+	}
+}
+
+func (p *Player) readICYStream(ctx context.Context, client *radiobrowser.Client, station radiobrowser.Station) (icySupported bool, gotMeta bool, err error) {
 	stream, err := client.OpenStream(ctx, station)
 	if err != nil {
-		return
+		return true, false, err
 	}
 	defer stream.Close()
 
 	if stream.MetadataInterval <= 0 {
-		return
+		return false, false, nil
 	}
 
 	lenByte := make([]byte, 1)
 
 	for {
 		if _, err := io.CopyN(io.Discard, stream, int64(stream.MetadataInterval)); err != nil {
-			return
+			return true, gotMeta, err
 		}
 		if _, err := io.ReadFull(stream, lenByte); err != nil {
-			return
+			return true, gotMeta, err
 		}
 		metaLen := int(lenByte[0]) * 16
 		if metaLen == 0 {
@@ -303,10 +331,10 @@ func (p *Player) watchICYMetadata(ctx context.Context, client *radiobrowser.Clie
 		}
 		metaBuf := make([]byte, metaLen)
 		if _, err := io.ReadFull(stream, metaBuf); err != nil {
-			return
+			return true, gotMeta, err
 		}
-		title := parseStreamTitle(string(metaBuf))
-		if title != "" {
+		gotMeta = true
+		if title := parseStreamTitle(string(metaBuf)); title != "" {
 			p.mu.Lock()
 			if p.current != nil && sameStation(*p.current, station) {
 				p.streamTitle = title

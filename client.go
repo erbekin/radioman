@@ -13,11 +13,34 @@ import (
 )
 
 type Client struct {
-	httpClient *http.Client
-	hosts      []string
+	httpClient   *http.Client
+	streamClient *http.Client
+	hosts        []string
 
 	mu      sync.Mutex
 	current int
+}
+
+func newStreamHTTPClient(base *http.Client) *http.Client {
+	if base == nil {
+		base = http.DefaultClient
+	}
+	sc := *base
+	sc.Timeout = 0
+	if base.Timeout > 0 {
+		tr := sc.Transport
+		if tr == nil {
+			tr = http.DefaultTransport
+		}
+		if ht, ok := tr.(*http.Transport); ok {
+			cloned := ht.Clone()
+			if cloned.ResponseHeaderTimeout == 0 {
+				cloned.ResponseHeaderTimeout = base.Timeout
+			}
+			sc.Transport = cloned
+		}
+	}
+	return &sc
 }
 
 func NewClient(httpClient *http.Client) (*Client, error) {
@@ -30,10 +53,19 @@ func NewClient(httpClient *http.Client) (*Client, error) {
 		return nil, err
 	}
 
+	return NewClientWithHosts(httpClient, hosts), nil
+}
+
+// NewClientWithHosts creates a Client with an explicit list of RadioBrowser API hosts.
+func NewClientWithHosts(httpClient *http.Client, hosts []string) *Client {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
 	return &Client{
-		httpClient: httpClient,
-		hosts:      hosts,
-	}, nil
+		httpClient:   httpClient,
+		streamClient: newStreamHTTPClient(httpClient),
+		hosts:        append([]string(nil), hosts...),
+	}
 }
 
 func (c *Client) Stats(ctx context.Context) (Stats, error) {
