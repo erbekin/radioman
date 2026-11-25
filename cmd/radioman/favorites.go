@@ -11,14 +11,14 @@ import (
 	"strconv"
 	"strings"
 
-	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 // Favorite represents a saved station with a unique numeric ID and short name.
 type Favorite struct {
 	ID        uint                 `json:"id"`
 	ShortName string               `json:"sname"`
-	Station   radiobrowser.Station `json:"station"`
+	Station   models.Station `json:"station"`
 }
 
 type favoritesFile struct {
@@ -64,9 +64,9 @@ func LoadFavoritesFromPath(path string) (*FavoritesStore, error) {
 		return store, nil
 	}
 
-	// Backward compatibility: migrate legacy []radiobrowser.Station array.
+	// Backward compatibility: migrate legacy []models.Station array.
 	if trimmed[0] == '[' {
-		var legacy []radiobrowser.Station
+		var legacy []models.Station
 		if err := json.Unmarshal(trimmed, &legacy); err != nil {
 			return store, err
 		}
@@ -172,8 +172,8 @@ func (f *FavoritesStore) Save() error {
 	return os.WriteFile(f.path, data, 0o644)
 }
 
-func (f *FavoritesStore) Stations() []radiobrowser.Station {
-	stations := make([]radiobrowser.Station, len(f.Entries))
+func (f *FavoritesStore) Stations() []models.Station {
+	stations := make([]models.Station, len(f.Entries))
 	for i, e := range f.Entries {
 		stations[i] = e.Station
 	}
@@ -195,13 +195,13 @@ func (f *FavoritesStore) existingNames(excludeIdx int) []string {
 	return names
 }
 
-func (f *FavoritesStore) IsFavorite(station radiobrowser.Station) bool {
+func (f *FavoritesStore) IsFavorite(station models.Station) bool {
 	return slices.ContainsFunc(f.Entries, func(e Favorite) bool {
 		return sameStation(e.Station, station)
 	})
 }
 
-func (f *FavoritesStore) GetByStation(station radiobrowser.Station) (Favorite, bool) {
+func (f *FavoritesStore) GetByStation(station models.Station) (Favorite, bool) {
 	for _, e := range f.Entries {
 		if sameStation(e.Station, station) {
 			return e, true
@@ -210,7 +210,7 @@ func (f *FavoritesStore) GetByStation(station radiobrowser.Station) (Favorite, b
 	return Favorite{}, false
 }
 
-func (f *FavoritesStore) Toggle(station radiobrowser.Station) (added bool, err error) {
+func (f *FavoritesStore) Toggle(station models.Station) (added bool, err error) {
 	idx := slices.IndexFunc(f.Entries, func(e Favorite) bool {
 		return sameStation(e.Station, station)
 	})
@@ -299,7 +299,7 @@ func (f *FavoritesStore) SetShortName(identifier string, newSname string) (Favor
 }
 
 // SetShortNameByStation updates the sname of the given favorited station.
-func (f *FavoritesStore) SetShortNameByStation(station radiobrowser.Station, newSname string) (Favorite, error) {
+func (f *FavoritesStore) SetShortNameByStation(station models.Station, newSname string) (Favorite, error) {
 	newSname = strings.TrimSpace(newSname)
 	if err := ValidateShortName(newSname); err != nil {
 		return Favorite{}, err
@@ -328,7 +328,7 @@ func (f *FavoritesStore) SetShortNameByStation(station radiobrowser.Station, new
 	return f.Entries[targetIdx], nil
 }
 
-func sameStation(a, b radiobrowser.Station) bool {
+func sameStation(a, b models.Station) bool {
 	if a.StationUUID != "" && b.StationUUID != "" {
 		return a.StationUUID == b.StationUUID
 	}

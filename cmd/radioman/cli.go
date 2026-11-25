@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 func RunCLI(args []string, preferredPlayer string, autoStopOverride *time.Duration, out io.Writer) error {
@@ -256,7 +256,7 @@ func formatCurrentLabel(st *PlayerState) string {
 	return st.Station.Name
 }
 
-func formatStationMeta(st radiobrowser.Station) string {
+func formatStationMeta(st models.Station) string {
 	var parts []string
 	if st.CountryCode != "" {
 		parts = append(parts, st.CountryCode)

@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 func TestPlayerSyncAndShutdown(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "player_state.json")
-	st := radiobrowser.Station{
+	st := models.Station{
 		StationUUID: "sync-1",
 		Name:        "Sync Radio",
 		URL:         "http://example.com/sync",
@@ -72,7 +72,7 @@ func TestPlayerSyncAndShutdown(t *testing.T) {
 
 func TestPlayerStopAttachedPreservesStation(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "player_state.json")
-	st := radiobrowser.Station{
+	st := models.Station{
 		StationUUID: "sync-2",
 		Name:        "Stop Test Radio",
 		URL:         "http://example.com/stop",
@@ -109,7 +109,7 @@ func TestPlayerStopAttachedPreservesStation(t *testing.T) {
 
 func TestPlayerShutdownContinueOnExit(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "player_state.json")
-	st := radiobrowser.Station{
+	st := models.Station{
 		StationUUID: "sync-3",
 		Name:        "Continue Radio",
 		URL:         "http://example.com/continue",
@@ -146,7 +146,7 @@ func TestPlayerShutdownContinueOnExit(t *testing.T) {
 
 func TestRunAutoStopWorker(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "player_state.json")
-	st := radiobrowser.Station{
+	st := models.Station{
 		StationUUID: "auto-1",
 		Name:        "Timer Radio",
 		URL:         "http://example.com/timer",

@@ -1,4 +1,9 @@
-package radiobrowser
+package models
+
+import (
+	"fmt"
+	"strings"
+)
 
 type Station struct {
 	ChangeUUID                string  `json:"changeuuid"`
@@ -37,6 +42,18 @@ type Station struct {
 	GeoLong                   float64 `json:"geo_long"`
 	GeoDistance               float64 `json:"geo_distance"`
 	HasExtendedInfo           *bool   `json:"has_extended_info,omitempty"`
+}
+
+// StreamURL returns the resolved stream URL when available, otherwise URL.
+func (s Station) StreamURL() (string, error) {
+	streamURL := strings.TrimSpace(s.URLResolved)
+	if streamURL == "" {
+		streamURL = strings.TrimSpace(s.URL)
+	}
+	if streamURL == "" {
+		return "", fmt.Errorf("station %q has no stream URL", s.StationUUID)
+	}
+	return streamURL, nil
 }
 
 type Stats map[string]any

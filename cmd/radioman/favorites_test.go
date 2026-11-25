@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 func TestFavoritesStoreIDsAndSnames(t *testing.T) {
@@ -15,9 +15,9 @@ func TestFavoritesStoreIDsAndSnames(t *testing.T) {
 		t.Fatalf("LoadFavoritesFromPath: %v", err)
 	}
 
-	s1 := radiobrowser.Station{StationUUID: "u1", Name: "KralTürk", URL: "http://example.com/1"}
-	s2 := radiobrowser.Station{StationUUID: "u2", Name: "KralTürk", URL: "http://example.com/2"}
-	s3 := radiobrowser.Station{StationUUID: "u3", Name: "Jazz FM", URL: "http://example.com/3"}
+	s1 := models.Station{StationUUID: "u1", Name: "KralTürk", URL: "http://example.com/1"}
+	s2 := models.Station{StationUUID: "u2", Name: "KralTürk", URL: "http://example.com/2"}
+	s3 := models.Station{StationUUID: "u3", Name: "Jazz FM", URL: "http://example.com/3"}
 
 	if added, err := store.Toggle(s1); err != nil || !added {
 		t.Fatalf("Toggle s1: added=%v err=%v", added, err)
@@ -43,7 +43,7 @@ func TestFavoritesStoreIDsAndSnames(t *testing.T) {
 	if added, err := store.Toggle(s2); err != nil || added {
 		t.Fatalf("Remove s2: added=%v err=%v", added, err)
 	}
-	s4 := radiobrowser.Station{StationUUID: "u4", Name: "Rock FM", URL: "http://example.com/4"}
+	s4 := models.Station{StationUUID: "u4", Name: "Rock FM", URL: "http://example.com/4"}
 	if added, err := store.Toggle(s4); err != nil || !added {
 		t.Fatalf("Toggle s4: added=%v err=%v", added, err)
 	}

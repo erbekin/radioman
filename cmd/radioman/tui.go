@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 type tabIndex int
@@ -31,12 +32,12 @@ const (
 
 type stationsLoadedMsg struct {
 	tab      tabIndex
-	stations []radiobrowser.Station
+	stations []models.Station
 	err      error
 }
 
 type playResultMsg struct {
-	station radiobrowser.Station
+	station models.Station
 	err     error
 }
 
@@ -60,7 +61,7 @@ type model struct {
 	limit     int
 
 	activeTab tabIndex
-	stations  []radiobrowser.Station
+	stations  []models.Station
 	cursor    int
 	offset    int
 
@@ -72,7 +73,7 @@ type model struct {
 
 	editingSname   bool
 	snameInput     textinput.Model
-	editingStation radiobrowser.Station
+	editingStation models.Station
 
 	showHelp bool
 
@@ -190,7 +191,7 @@ func (m model) fetchTopStationsCmd() tea.Cmd {
 }
 
 func (m model) fetchSearchStationsCmd() tea.Cmd {
-	query := radiobrowser.StationsQuery{
+	query := models.StationsQuery{
 		Name:       strings.TrimSpace(m.nameInput.Value()),
 		Country:    strings.TrimSpace(m.countryInput.Value()),
 		Tag:        strings.TrimSpace(m.tagInput.Value()),
@@ -211,7 +212,7 @@ func (m model) fetchSearchStationsCmd() tea.Cmd {
 	}
 }
 
-func (m model) playStationCmd(station radiobrowser.Station) tea.Cmd {
+func (m model) playStationCmd(station models.Station) tea.Cmd {
 	var favID uint
 	var sname string
 	if m.favorites != nil {

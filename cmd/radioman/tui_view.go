@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
-	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 // ---------------------------------------------------------------------------
@@ -308,7 +308,7 @@ func (m model) renderStationList(width, height int) string {
 	return strings.Join(rows, "\n")
 }
 
-func stationMeta(st radiobrowser.Station) string {
+func stationMeta(st models.Station) string {
 	var meta []string
 	if st.CountryCode != "" {
 		meta = append(meta, st.CountryCode)

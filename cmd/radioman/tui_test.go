@@ -7,7 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 func newTestTUIModel(t *testing.T, opts TUIOptions) model {
@@ -25,7 +25,7 @@ func newTestTUIModel(t *testing.T, opts TUIOptions) model {
 	player := NewPlayer(PlayerBackend{Name: "mpv"}, bg)
 	m := NewTUIModel(nil, player, favs, settings, opts)
 	m.loading = false
-	m.stations = []radiobrowser.Station{
+	m.stations = []models.Station{
 		{
 			StationUUID: "uuid-1",
 			Name:        "Jazz FM London",

@@ -1,4 +1,4 @@
-package radiobrowser
+package models
 
 // StationCheck describes one RadioBrowser stream check.
 type StationCheck struct {

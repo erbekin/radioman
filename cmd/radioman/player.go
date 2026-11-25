@@ -12,6 +12,7 @@ import (
 	"time"
 
 	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 type PlayerBackend struct {
@@ -28,7 +29,7 @@ type Player struct {
 	ownedByTUI  bool
 	stopAt      time.Time
 	metaCancel  context.CancelFunc
-	current     *radiobrowser.Station
+	current     *models.Station
 	streamTitle string
 }
 
@@ -116,7 +117,7 @@ func (p *Player) BackendName() string {
 	return p.backend.Name
 }
 
-func (p *Player) Play(client *radiobrowser.Client, station radiobrowser.Station, favID uint, sname string) error {
+func (p *Player) Play(client *radiobrowser.Client, station models.Station, favID uint, sname string) error {
 	p.opMu.Lock()
 	defer p.opMu.Unlock()
 
@@ -246,7 +247,7 @@ func (p *Player) Shutdown(continueOnExit bool) {
 	}
 }
 
-func (p *Player) CurrentStation() *radiobrowser.Station {
+func (p *Player) CurrentStation() *models.Station {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.current == nil {
@@ -268,7 +269,7 @@ func (p *Player) StopAt() time.Time {
 	return p.stopAt
 }
 
-func (p *Player) IsPlaying(station radiobrowser.Station) bool {
+func (p *Player) IsPlaying(station models.Station) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.current == nil {
@@ -282,7 +283,7 @@ var (
 	icyMaxBackoff     = 30 * time.Second
 )
 
-func (p *Player) watchICYMetadata(ctx context.Context, client *radiobrowser.Client, station radiobrowser.Station) {
+func (p *Player) watchICYMetadata(ctx context.Context, client *radiobrowser.Client, station models.Station) {
 	backoff := icyInitialBackoff
 	for ctx.Err() == nil {
 		started := time.Now()
@@ -305,7 +306,7 @@ func (p *Player) watchICYMetadata(ctx context.Context, client *radiobrowser.Clie
 	}
 }
 
-func (p *Player) readICYStream(ctx context.Context, client *radiobrowser.Client, station radiobrowser.Station) (icySupported bool, gotMeta bool, err error) {
+func (p *Player) readICYStream(ctx context.Context, client *radiobrowser.Client, station models.Station) (icySupported bool, gotMeta bool, err error) {
 	stream, err := client.OpenStream(ctx, station)
 	if err != nil {
 		return true, false, err

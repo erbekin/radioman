@@ -1,4 +1,4 @@
-package radiobrowser
+package models
 
 // Country is a country returned by the RadioBrowser countries endpoint.
 type Country struct {

@@ -1,4 +1,4 @@
-package radiobrowser
+package models
 
 // StationCheckStep represents one step in the stream-checking process.
 // Steps form a tree when redirects or playlists create additional steps.

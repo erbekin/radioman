@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 // PlayerState persists the background player's process and current station info.
@@ -20,7 +20,7 @@ type PlayerState struct {
 	Backend     string                `json:"backend"`
 	BackendPath string                `json:"backend_path"`
 	Playing     bool                  `json:"playing"`
-	Station     *radiobrowser.Station `json:"station,omitempty"`
+	Station     *models.Station `json:"station,omitempty"`
 	FavoriteID  uint                  `json:"favorite_id,omitempty"`
 	ShortName   string                `json:"sname,omitempty"`
 	StartedAt   time.Time             `json:"started_at,omitempty"`
@@ -153,7 +153,7 @@ func (c *BackgroundController) Status() (*PlayerState, PlayerBackend, error) {
 	return st, backend, nil
 }
 
-func (c *BackgroundController) PlayStation(station radiobrowser.Station, favID uint, sname string) (*PlayerState, error) {
+func (c *BackgroundController) PlayStation(station models.Station, favID uint, sname string) (*PlayerState, error) {
 	st, err := c.refreshState()
 	if err != nil {
 		return nil, err

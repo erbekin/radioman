@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 func TestExpandCLIAliases(t *testing.T) {
@@ -42,7 +42,7 @@ func TestCLIWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFavoritesFromPath: %v", err)
 	}
-	_, _ = favs.Toggle(radiobrowser.Station{
+	_, _ = favs.Toggle(models.Station{
 		StationUUID: "u1",
 		Name:        "KralTürk",
 		URL:         "http://example.com/kral",

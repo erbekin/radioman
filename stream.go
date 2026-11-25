@@ -6,7 +6,8 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
+
+	"github.com/erbekin/radioman/models"
 )
 
 // Stream is an open audio stream returned by RadioBrowser.
@@ -22,23 +23,11 @@ type Stream struct {
 	Response         *http.Response
 }
 
-// StreamURL returns the resolved stream URL when available, otherwise URL.
-func (s Station) StreamURL() (string, error) {
-	streamURL := strings.TrimSpace(s.URLResolved)
-	if streamURL == "" {
-		streamURL = strings.TrimSpace(s.URL)
-	}
-	if streamURL == "" {
-		return "", fmt.Errorf("station %q has no stream URL", s.StationUUID)
-	}
-	return streamURL, nil
-}
-
 // OpenStream opens a station's audio stream.
 //
 // The caller must close the returned stream. The request asks the server for
 // ICY metadata; MetadataInterval indicates where that metadata is interleaved.
-func (c *Client) OpenStream(ctx context.Context, station Station) (*Stream, error) {
+func (c *Client) OpenStream(ctx context.Context, station models.Station) (*Stream, error) {
 	streamURL, err := station.StreamURL()
 	if err != nil {
 		return nil, err

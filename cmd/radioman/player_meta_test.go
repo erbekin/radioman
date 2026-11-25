@@ -11,6 +11,7 @@ import (
 	"time"
 
 	radiobrowser "github.com/erbekin/radioman"
+	"github.com/erbekin/radioman/models"
 )
 
 func writeICYFrame(w http.ResponseWriter, metaint int, title string) {
@@ -83,7 +84,7 @@ func TestWatchICYMetadataUpdatesAndReconnects(t *testing.T) {
 	bg := NewBackgroundController(filepath.Join(t.TempDir(), "player_state.json"), "")
 	p := NewPlayer(PlayerBackend{Name: "mpv"}, bg)
 
-	station := radiobrowser.Station{
+	station := models.Station{
 		StationUUID: "icy-1",
 		Name:        "ICY Test FM",
 		URLResolved: srv.URL,
@@ -128,7 +129,7 @@ func TestWatchICYMetadataStopsWhenUnsupported(t *testing.T) {
 	bg := NewBackgroundController(filepath.Join(t.TempDir(), "player_state.json"), "")
 	p := NewPlayer(PlayerBackend{Name: "mpv"}, bg)
 
-	station := radiobrowser.Station{
+	station := models.Station{
 		StationUUID: "icy-unsupported",
 		Name:        "No ICY FM",
 		URLResolved: srv.URL,

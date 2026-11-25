@@ -10,6 +10,8 @@ import (
 	"path"
 	"sync"
 	"time"
+
+	"github.com/erbekin/radioman/models"
 )
 
 type Client struct {
@@ -68,19 +70,19 @@ func NewClientWithHosts(httpClient *http.Client, hosts []string) *Client {
 	}
 }
 
-func (c *Client) Stats(ctx context.Context) (Stats, error) {
-	var stats Stats
+func (c *Client) Stats(ctx context.Context) (models.Stats, error) {
+	var stats models.Stats
 	if err := c.get(ctx, "/json/stats", nil, &stats); err != nil {
 		return nil, err
 	}
 	return stats, nil
 }
 
-func (c *Client) SearchStations(ctx context.Context, name string) ([]Station, error) {
-	return c.SearchStationsWithQuery(ctx, StationsQuery{Name: name})
+func (c *Client) SearchStations(ctx context.Context, name string) ([]models.Station, error) {
+	return c.SearchStationsWithQuery(ctx, models.StationsQuery{Name: name})
 }
 
-func (c *Client) SearchStationsWithQuery(ctx context.Context, options StationsQuery) ([]Station, error) {
+func (c *Client) SearchStationsWithQuery(ctx context.Context, options models.StationsQuery) ([]models.Station, error) {
 	query := url.Values{}
 	if options.Name != "" {
 		query.Set("name", options.Name)
@@ -110,14 +112,14 @@ func (c *Client) SearchStationsWithQuery(ctx context.Context, options StationsQu
 		query.Set("limit", fmt.Sprintf("%d", options.Limit))
 	}
 
-	var stations []Station
+	var stations []models.Station
 	if err := c.get(ctx, "/json/stations/search", query, &stations); err != nil {
 		return nil, err
 	}
 	return stations, nil
 }
 
-func (c *Client) Stations(ctx context.Context, options StationsQuery) ([]Station, error) {
+func (c *Client) Stations(ctx context.Context, options models.StationsQuery) ([]models.Station, error) {
 	query := url.Values{}
 	if options.Order != "" {
 		query.Set("order", options.Order)
@@ -135,15 +137,15 @@ func (c *Client) Stations(ctx context.Context, options StationsQuery) ([]Station
 		query.Set("limit", fmt.Sprintf("%d", options.Limit))
 	}
 
-	var stations []Station
+	var stations []models.Station
 	if err := c.get(ctx, "/json/stations", query, &stations); err != nil {
 		return nil, err
 	}
 	return stations, nil
 }
 
-func (c *Client) TopStations(ctx context.Context, limit int) ([]Station, error) {
-	return c.Stations(ctx, StationsQuery{
+func (c *Client) TopStations(ctx context.Context, limit int) ([]models.Station, error) {
+	return c.Stations(ctx, models.StationsQuery{
 		Order:      "clickcount",
 		Reverse:    true,
 		HideBroken: true,
@@ -151,7 +153,7 @@ func (c *Client) TopStations(ctx context.Context, limit int) ([]Station, error) 
 	})
 }
 
-func (c *Client) Countries(ctx context.Context, options CountriesQuery) ([]Country, error) {
+func (c *Client) Countries(ctx context.Context, options models.CountriesQuery) ([]models.Country, error) {
 	query := url.Values{}
 	if options.Order != "" {
 		query.Set("order", options.Order)
@@ -169,7 +171,7 @@ func (c *Client) Countries(ctx context.Context, options CountriesQuery) ([]Count
 		query.Set("limit", fmt.Sprintf("%d", options.Limit))
 	}
 
-	var countries []Country
+	var countries []models.Country
 	if err := c.get(ctx, "/json/countries", query, &countries); err != nil {
 		return nil, err
 	}

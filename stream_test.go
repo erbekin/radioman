@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/erbekin/radioman/models"
 )
 
 func TestOpenStreamIgnoresClientBodyTimeout(t *testing.T) {
@@ -24,7 +26,7 @@ func TestOpenStreamIgnoresClientBodyTimeout(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClientWithHosts(&http.Client{Timeout: 100 * time.Millisecond}, nil)
-	stream, err := client.OpenStream(context.Background(), Station{
+	stream, err := client.OpenStream(context.Background(), models.Station{
 		StationUUID: "stream-1",
 		URLResolved: srv.URL,
 	})
@@ -56,7 +58,7 @@ func TestOpenStreamRespectsResponseHeaderTimeout(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClientWithHosts(&http.Client{Timeout: 80 * time.Millisecond}, nil)
-	_, err := client.OpenStream(context.Background(), Station{
+	_, err := client.OpenStream(context.Background(), models.Station{
 		StationUUID: "stream-2",
 		URLResolved: srv.URL,
 	})

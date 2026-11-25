@@ -1,4 +1,4 @@
-package radiobrowser
+package models
 
 // StreamingServer describes a server discovered while checking a stream.
 type StreamingServer struct {
